@@ -1,12 +1,17 @@
 """
 utils/helpers.py - Miscellaneous utility functions
 """
-import cv2
 import numpy as np
 from datetime import datetime
 from pathlib import Path
 import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+# Fix path for Streamlit Cloud
+_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _root not in sys.path:
+    sys.path.insert(0, _root)
+
+import cv2
 from config import SNAPSHOTS_DIR
 
 
