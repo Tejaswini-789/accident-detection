@@ -4,7 +4,12 @@ AI-Based Real-Time Road Accident Detection and Emergency Alert System
 """
 import streamlit as st
 import sys, os
-sys.path.insert(0, os.path.dirname(__file__))
+
+# Ensure project root is always in path (critical for Streamlit Cloud)
+_APP_ROOT = os.path.dirname(os.path.abspath(__file__))
+if _APP_ROOT not in sys.path:
+    sys.path.insert(0, _APP_ROOT)
+os.chdir(_APP_ROOT)  # Set working directory to project root
 
 # ── Page config (must be first Streamlit call) ─────────────────────────────
 st.set_page_config(

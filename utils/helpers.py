@@ -6,17 +6,16 @@ from datetime import datetime
 from pathlib import Path
 import sys, os
 
-# Fix path for Streamlit Cloud
 _root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _root not in sys.path:
     sys.path.insert(0, _root)
 
-import cv2
 from config import SNAPSHOTS_DIR
 
 
 def save_snapshot(frame: np.ndarray, prefix: str = "accident") -> str:
     """Save a frame as a JPEG snapshot. Returns the file path string."""
+    import cv2
     ts   = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     name = f"{prefix}_{ts}.jpg"
     path = SNAPSHOTS_DIR / name
@@ -26,11 +25,13 @@ def save_snapshot(frame: np.ndarray, prefix: str = "accident") -> str:
 
 def frame_to_bytes(frame: np.ndarray) -> bytes:
     """Encode an OpenCV frame to JPEG bytes for Streamlit display."""
+    import cv2
     _, buf = cv2.imencode(".jpg", frame)
     return buf.tobytes()
 
 
 def resize_frame(frame: np.ndarray, max_width: int = 960) -> np.ndarray:
+    import cv2
     h, w = frame.shape[:2]
     if w <= max_width:
         return frame

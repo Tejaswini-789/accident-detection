@@ -1,18 +1,21 @@
 """
 utils/video_utils.py - Video file processing utilities
 """
-import cv2
 import os
-import tempfile
 import numpy as np
 from pathlib import Path
 from typing import Generator, Tuple
 import sys
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _root not in sys.path:
+    sys.path.insert(0, _root)
+
 from config import FRAME_SKIP, OUTPUTS_DIR
 
 
 def get_video_info(video_path: str) -> dict:
+    import cv2
     cap = cv2.VideoCapture(video_path)
     info = {
         "fps":    cap.get(cv2.CAP_PROP_FPS) or 25,
@@ -25,10 +28,8 @@ def get_video_info(video_path: str) -> dict:
     return info
 
 
-def frame_generator(
-    video_path: str, skip: int = FRAME_SKIP
-) -> Generator[Tuple[int, np.ndarray], None, None]:
-    """Yield (frame_index, frame) every `skip` frames."""
+def frame_generator(video_path: str, skip: int = FRAME_SKIP) -> Generator[Tuple[int, np.ndarray], None, None]:
+    import cv2
     cap = cv2.VideoCapture(video_path)
     idx = 0
     while True:
@@ -41,22 +42,11 @@ def frame_generator(
     cap.release()
 
 
-def write_annotated_video(
-    input_path: str,
-    output_name: str,
-    annotated_frames: dict,   # {frame_idx: annotated_frame}
-    fps: float,
-    width: int,
-    height: int,
-) -> str:
-    """
-    Write an output video with annotated frames merged back in.
-    Returns the output file path.
-    """
+def write_annotated_video(input_path, output_name, annotated_frames, fps, width, height) -> str:
+    import cv2
     out_path = str(OUTPUTS_DIR / output_name)
     fourcc   = cv2.VideoWriter_fourcc(*"mp4v")
     writer   = cv2.VideoWriter(out_path, fourcc, fps, (width, height))
-
     cap = cv2.VideoCapture(input_path)
     idx = 0
     while True:
@@ -74,7 +64,6 @@ def write_annotated_video(
 
 
 def save_upload(uploaded_file, dest_dir: Path) -> str:
-    """Save a Streamlit UploadedFile to dest_dir and return its path."""
     dest = dest_dir / uploaded_file.name
     with open(str(dest), "wb") as f:
         f.write(uploaded_file.getbuffer())

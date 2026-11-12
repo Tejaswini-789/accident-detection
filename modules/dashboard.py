@@ -6,7 +6,11 @@ import plotly.graph_objects as go
 import plotly.express as px
 import pandas as pd
 import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _root not in sys.path:
+    sys.path.insert(0, _root)
+
 from database.db import get_session_stats, get_severity_counts, get_daily_counts, get_accidents
 from utils.helpers import format_timestamp, severity_badge
 from utils.detection import model_info

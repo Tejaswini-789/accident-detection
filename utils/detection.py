@@ -1,40 +1,38 @@
 """
 utils/detection.py - Core YOLO inference wrapper
 """
-import cv2
 import numpy as np
 from pathlib import Path
 from typing import List, Dict, Optional
 import sys, os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
+_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _root not in sys.path:
+    sys.path.insert(0, _root)
+
 from config import (
     MODEL_PATH, FALLBACK_MODEL, CONF_THRESHOLD, IOU_THRESHOLD,
     ACCIDENT_CLASS_NAMES, VEHICLE_CLASSES,
 )
 
-_model = None          # cached model instance
-_model_type = None     # "custom" | "fallback"
+_model = None
+_model_type = None
 
 
 def _load_model():
     global _model, _model_type
     if _model is not None:
         return _model, _model_type
-
     from ultralytics import YOLO
-
     if MODEL_PATH.exists():
         try:
             _model = YOLO(str(MODEL_PATH))
             _model_type = "custom"
-            print(f"[INFO] Loaded custom model: {MODEL_PATH}")
             return _model, _model_type
         except Exception as e:
             print(f"[WARN] Custom model failed ({e}), falling back.")
-
     _model = YOLO(FALLBACK_MODEL)
     _model_type = "fallback"
-    print("[INFO] Using YOLOv8 fallback (vehicle detection, accident inferred by logic)")
     return _model, _model_type
 
 
@@ -49,9 +47,7 @@ def model_info() -> str:
     )
 
 
-# ─── Helpers ──────────────────────────────────────────────────────────────────
 def _boxes_overlap(b1, b2, threshold=0.15) -> bool:
-    """IoU-based overlap check for two bounding boxes."""
     x1 = max(b1[0], b2[0]); y1 = max(b1[1], b2[1])
     x2 = min(b1[2], b2[2]); y2 = min(b1[3], b2[3])
     inter = max(0, x2 - x1) * max(0, y2 - y1)
@@ -64,17 +60,12 @@ def _boxes_overlap(b1, b2, threshold=0.15) -> bool:
 
 
 def _infer_accident_from_vehicles(detections: list) -> Optional[Dict]:
-    """
-    Fallback heuristic: two or more vehicles with overlapping bounding boxes
-    suggests a collision. Returns a synthetic detection dict or None.
-    """
     vehicles = [d for d in detections if d["class_id"] in VEHICLE_CLASSES]
     if len(vehicles) < 2:
         return None
     for i in range(len(vehicles)):
         for j in range(i + 1, len(vehicles)):
             if _boxes_overlap(vehicles[i]["bbox"], vehicles[j]["bbox"]):
-                # merge boxes
                 b1, b2 = vehicles[i]["bbox"], vehicles[j]["bbox"]
                 merged = (
                     min(b1[0], b2[0]), min(b1[1], b2[1]),
@@ -100,21 +91,9 @@ def _severity_from_class(class_name: str) -> str:
     return "Unknown"
 
 
-# ─── Public API ───────────────────────────────────────────────────────────────
 def run_inference(frame: np.ndarray) -> List[Dict]:
-    """
-    Run YOLO on a single frame.
-    Returns list of dicts: {class_id, class_name, confidence, bbox, severity}
-    bbox = (x1, y1, x2, y2) in pixel coordinates.
-    """
     model, mt = _load_model()
-    results = model(
-        frame,
-        conf=CONF_THRESHOLD,
-        iou=IOU_THRESHOLD,
-        verbose=False,
-    )
-
+    results = model(frame, conf=CONF_THRESHOLD, iou=IOU_THRESHOLD, verbose=False)
     detections = []
     for r in results:
         for box in r.boxes:
@@ -129,22 +108,14 @@ def run_inference(frame: np.ndarray) -> List[Dict]:
                 "bbox":       (x1, y1, x2, y2),
                 "severity":   _severity_from_class(name),
             })
-
     if mt == "custom":
-        # keep only accident-related classes
-        accident_dets = [
-            d for d in detections
-            if any(a in d["class_name"].lower() for a in ACCIDENT_CLASS_NAMES)
-        ]
-        return accident_dets
-
-    # fallback: check vehicle overlaps
+        return [d for d in detections if any(a in d["class_name"].lower() for a in ACCIDENT_CLASS_NAMES)]
     acc = _infer_accident_from_vehicles(detections)
     return [acc] if acc else []
 
 
 def annotate_frame(frame: np.ndarray, detections: List[Dict]) -> np.ndarray:
-    """Draw bounding boxes and labels on a copy of the frame."""
+    import cv2
     out = frame.copy()
     sev_colors = {
         "High":    (0, 0, 255),
@@ -159,7 +130,6 @@ def annotate_frame(frame: np.ndarray, detections: List[Dict]) -> np.ndarray:
         label = f"{d['class_name']} {d['confidence']:.2f}"
         if sev != "Unknown":
             label += f" [{sev}]"
-
         cv2.rectangle(out, (x1, y1), (x2, y2), color, 2)
         (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.55, 1)
         cv2.rectangle(out, (x1, y1 - th - 6), (x1 + tw + 4, y1), color, -1)
